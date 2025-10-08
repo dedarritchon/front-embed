@@ -14,11 +14,19 @@ import {
   Tooltip,
   TooltipCoordinator,
   FormField,
+  InlineBanner,
 } from '@frontapp/ui-kit';
 import type {IframeConfig, AppSettings} from '../types';
-import {generateId, exportSettings, importSettings} from '../utils/storage';
+import {generateId, exportSettings, validateImportedSettings} from '../utils/storage';
 
 // Styled Components
+
+const BannerContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+`;
+
 
 const ConfigContainer = styled.div`
   padding: 0 1.5rem;
@@ -159,14 +167,18 @@ interface SettingsViewProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
   onBackToMain: () => void;
+  onViewIframe: (configId: string) => void;
 }
 
-export function SettingsView({settings, onSettingsChange, onBackToMain}: SettingsViewProps) {
+export function SettingsView({settings, onSettingsChange, onBackToMain, onViewIframe}: SettingsViewProps) {
   const [showModal, setShowModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [editingConfig, setEditingConfig] = useState<IframeConfig | null>(null);
   const [newConfig, setNewConfig] = useState({name: '', embedCode: ''});
   const [importText, setImportText] = useState('');
+  const [showBanner, setShowBanner] = useState(false);
+  const [bannerMessage, setBannerMessage] = useState('');
+  const [importError, setImportError] = useState('');
 
   const openAddModal = () => {
     setEditingConfig(null);
@@ -188,12 +200,14 @@ export function SettingsView({settings, onSettingsChange, onBackToMain}: Setting
 
   const openImportModal = () => {
     setImportText('');
+    setImportError('');
     setShowImportModal(true);
   };
 
   const closeImportModal = () => {
     setShowImportModal(false);
     setImportText('');
+    setImportError('');
   };
 
   const handleSaveConfig = () => {
@@ -248,18 +262,43 @@ export function SettingsView({settings, onSettingsChange, onBackToMain}: Setting
   const handleExport = () => {
     const exportData = exportSettings(settings);
     navigator.clipboard.writeText(exportData).then(() => {
-      alert('Settings copied to clipboard!');
+      setBannerMessage('Settings copied to clipboard!');
+      setShowBanner(true);
+      // Auto-hide banner after 3 seconds
+      setTimeout(() => setShowBanner(false), 3000);
     });
   };
 
   const handleImport = () => {
+    if (!importText.trim()) {
+      setImportError('Please enter some JSON data to import.');
+      return;
+    }
+
+    const validation = validateImportedSettings(importText);
+    
+    if (!validation.isValid) {
+      setImportError(validation.error || 'Invalid settings format');
+      return;
+    }
+
     try {
-      const importedSettings = importSettings(importText);
-      onSettingsChange(importedSettings);
+      onSettingsChange(validation.settings!);
       closeImportModal();
-      alert('Settings imported successfully!');
+      setBannerMessage('Settings imported successfully!');
+      setShowBanner(true);
+      // Auto-hide banner after 3 seconds
+      setTimeout(() => setShowBanner(false), 3000);
     } catch (error) {
-      alert('Invalid JSON format. Please check your import data.');
+      setImportError('Failed to import settings. Please try again.');
+    }
+  };
+
+  const handleImportTextChange = (value: string) => {
+    setImportText(value);
+    // Clear error when user starts typing
+    if (importError) {
+      setImportError('');
     }
   };
 
@@ -272,6 +311,16 @@ export function SettingsView({settings, onSettingsChange, onBackToMain}: Setting
         Settings
       </PluginHeader>
       <ConfigsContainer>
+        {showBanner && (
+          <BannerContainer>
+            <InlineBanner
+                type="info"
+                size={VisualSizesEnum.SMALL}
+                title={bannerMessage}
+                onClose={() => setShowBanner(false)}
+            />
+          </BannerContainer>
+        )}
           <ConfigContainer>
             <SectionTitle>
               <ButtonGroup>
@@ -307,6 +356,13 @@ export function SettingsView({settings, onSettingsChange, onBackToMain}: Setting
                     <ConfigHeader>
                       <ConfigName>{config.name}</ConfigName>
                       <ConfigActions>
+                        <TooltipCoordinator
+                          renderTooltip={() => <Tooltip placement="bottom">View this iframe</Tooltip>}
+                        >
+                          <Button type="icon" onClick={() => onViewIframe(config.id)}>
+                            <Icon name="ExternalLink" />
+                          </Button>
+                        </TooltipCoordinator>
                         <Button type="icon" onClick={() => openEditModal(config)}>
                           <Icon name="Edit" />
                         </Button>
@@ -392,6 +448,23 @@ export function SettingsView({settings, onSettingsChange, onBackToMain}: Setting
               </ModalHeader>
               
               <ModalBody>
+                <div style={{ marginBottom: '1rem' }}>
+                  <Paragraph color="#666">
+                    Import settings from a previously exported JSON file. The JSON must contain valid iframe configurations with the following structure:
+                  </Paragraph>
+                </div>
+                <ConfigCode style={{ marginBottom: '1rem', fontSize: '0.8em' }}>
+                  {`{
+  "iframeConfigs": [
+    {
+      "id": "unique-id",
+      "name": "Configuration Name",
+      "embedCode": "<iframe src='...'></iframe>"
+    }
+  ],
+  "activeIframeId": "optional-active-id"
+}`}
+                </ConfigCode>
                 <FormField
                   label="JSON Settings"
                   hint="Paste your exported JSON settings here to import configurations"
@@ -400,10 +473,18 @@ export function SettingsView({settings, onSettingsChange, onBackToMain}: Setting
                   <Textarea
                     placeholder="Paste your exported JSON settings here..."
                     value={importText}
-                    onChange={setImportText}
+                    onChange={handleImportTextChange}
                     rows={8}
                   />
                 </FormField>
+                {importError && (
+                  <InlineBanner
+                    type="error"
+                    size={VisualSizesEnum.SMALL}
+                    title={importError}
+                    onClose={() => setImportError('')}
+                  />
+                )}
               </ModalBody>
               
               <ModalFooter>

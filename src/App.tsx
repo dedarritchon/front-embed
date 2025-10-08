@@ -52,6 +52,17 @@ export function App() {
     setCurrentView('main');
   };
 
+  const handleViewIframe = (configId: string) => {
+    // Set the active iframe ID and switch to main view
+    const updatedSettings = {
+      ...settings,
+      activeIframeId: configId,
+    };
+    setSettings(updatedSettings);
+    saveSettings(updatedSettings);
+    setCurrentView('main');
+  };
+
   return (
     <DefaultStyleProvider>
       <GlobalStyle />
@@ -66,6 +77,7 @@ export function App() {
           settings={settings}
           onSettingsChange={handleSettingsChange}
           onBackToMain={handleBackToMain}
+          onViewIframe={handleViewIframe}
         />
       )}
     </DefaultStyleProvider>
