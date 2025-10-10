@@ -14,14 +14,18 @@
     "test-run": "vitest --run",
     "check": "npm run lint && npm run type-check && npm run format-check && npm run test-run",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pre-deploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+    
   },
   "dependencies": {
     "@frontapp/ui-kit": "^0.9.0",
     "@types/styled-components": "^5.1.34",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "styled-components": "^6.1.19"
+    "styled-components": "^6.1.19",
+    "gh-pages": "^6.2.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",
